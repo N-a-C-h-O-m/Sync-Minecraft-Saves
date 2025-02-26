@@ -7,7 +7,7 @@ import io
 import os
 
 # Define OAuth 2.0 scope for Google Drive
-SCOPES = ['https://www.googleapis.com/auth/drive.file']
+SCOPES = ['https://www.googleapis.com/auth/drive']
 TOKEN = 'token.json'
 CREDENTIALS = 'credentials.json'
 

@@ -10,4 +10,8 @@ def main():
     creds = authenticate()
     service = build("drive", "v3", credentials=creds)
 
-    
+    list_files(service)
+
+
+if __name__ == "__main__":
+    main()
