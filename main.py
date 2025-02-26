@@ -1,20 +1,14 @@
 from drive import *
+from setup_log import PC_ID, LOCAL_LOG, CLOUD_LOG_ID
 
 import os
 
-LOCAL_LOG = "log.txt"
 SAVEFILES = "" # Directorio donde guardaras la partida
 
 def download_save():
     pass
 
 def upload_save():
-    pass
-
-def download_log():
-    pass
-
-def upload_log():
     pass
 
 def main():
