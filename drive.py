@@ -4,6 +4,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 import io
 import os
+import log
 
 # Define OAuth 2.0 scope for Google Drive
 SCOPES = ['https://www.googleapis.com/auth/drive']
@@ -39,11 +40,11 @@ def list_files(service):
     files = results.get("files", [])
 
     if not files:
-        print("No se encontraron archivos en Google Drive.")
+        log.write_to_log("No se encontraron archivos en Google Drive.")
     else:
-        print("Archivos en Drive:")
+        log.write_to_log("Archivos en Drive:")
         for file in files:
-            print(f"Nombre: {file['name']} | ID: {file['id']}")
+            log.write_to_log(f"Nombre: {file['name']} | ID: {file['id']}")
 
 
 # Function to list folders in Google Drive
@@ -53,11 +54,11 @@ def list_folders(service):
     folders = results.get("files", [])
 
     if not folders:
-        print("No se encontraron carpetas en Google Drive.")
+        log.write_to_log("No se encontraron carpetas en Google Drive.")
     else:
-        print("Carpetas en Drive:")
+        log.write_to_log("Carpetas en Drive:")
         for folder in folders:
-            print(f"Nombre: {folder['name']} | ID: {folder['id']}")
+            log.write_to_log(f"Nombre: {folder['name']} | ID: {folder['id']}")
 
 
 '''------------FUNCIONES BUSCAR ARCHIVO Y CARPETA------------'''
@@ -68,10 +69,10 @@ def search_file(service, file_name):
     files = results.get("files", [])
 
     if not files:
-        print(f"No se encontró el archivo: {file_name}")
+        log.write_to_log(f"No se encontró el archivo: {file_name}")
     else:
         for file in files:
-            print(f"Archivo encontrado: {file['name']} | ID: {file['id']}")
+            log.write_to_log(f"Archivo encontrado: {file['name']} | ID: {file['id']}")
 
 # Function to search for a folder in Google Drive
 def search_folder(service, folder_name):
@@ -80,10 +81,10 @@ def search_folder(service, folder_name):
     folders = results.get("files", [])
 
     if not folders:
-        print(f"No se encontró la carpeta: {folder_name}")
+        log.write_to_log(f"No se encontró la carpeta: {folder_name}")
     else:
         for folder in folders:
-            print(f"Carpeta encontrada: {folder['name']} | ID: {folder['id']}")
+            log.write_to_log(f"Carpeta encontrada: {folder['name']} | ID: {folder['id']}")
 
 
 '''------------FUNCIONES SUBIR ARCHIVO Y CARPETA------------'''
@@ -96,7 +97,7 @@ def upload_file(service, file_path, file_name, folder_id=None):
     media = MediaFileUpload(file_path, resumable=True)
     file = service.files().create(body=file_metadata, media_body=media, fields="id").execute()
 
-    print(f'File uploaded successfully! File ID: {file.get("id")}')
+    log.write_to_log(f'File uploaded successfully! File ID: {file.get("id")}')
     return file.get("id")
 
 
@@ -132,7 +133,7 @@ def create_drive_folder(service, folder_name, parent_folder_id=None):
         "parents": [parent_folder_id] if parent_folder_id else []
     }
     folder = service.files().create(body=folder_metadata, fields="id").execute()
-    print(f"Created folder: {folder_name} (ID: {folder['id']})")
+    log.write_to_log(f"Created folder: {folder_name} (ID: {folder['id']})")
     return folder["id"]
 
 
@@ -150,7 +151,7 @@ def download_file(service, file_id, save_path):
     with open(save_path, 'wb') as f:
         f.write(file.getvalue())
 
-    print(f'File downloaded successfully! Saved as: {save_path}')
+    log.write_to_log(f'File downloaded successfully! Saved as: {save_path}')
 
 
 # Function to download a folder recursively from Google Drive
@@ -160,7 +161,7 @@ def download_folder(service, folder_id, save_path):
     files = results.get("files", [])
 
     if not files:
-        print("No se encontraron archivos en la carpeta.")
+        log.write_to_log("No se encontraron archivos en la carpeta.")
     else:
         for file in files:
             if file["mimeType"] == "application/vnd.google-apps.folder":
@@ -172,3 +173,64 @@ def download_folder(service, folder_id, save_path):
                 # Download file
                 save_file_path = os.path.join(save_path, file["name"])
                 download_file(service, file["id"], save_file_path)
+
+
+'''------------FUNCIONES EDITAR ARCHIVOS Y CARPETAS------------'''
+def  update_file(service, file_id, new_file):
+    media = MediaFileUpload(new_file, resumable=True)
+    updated_file = service.files().update(fileId=file_id, media_body=media).execute()
+
+    log.write_to_log(f'File updated successfully! File ID: {updated_file.get("id")}')
+
+def remove_folder(service, folder_id):
+    query = f"'{folder_id}' in parents and trashed = false"
+    results = service.files().list(q=query, fields="files(id, mimeType)").execute()
+    files = results.get("files", [])
+
+    for file in files:
+        if file["mimeType"] == "application/vnd.google-apps.folder":
+            remove_folder(service, file["id"])  # Recursively delete subfolders
+        else:
+            service.files().delete(fileId=file["id"]).execute()  # Delete file
+
+    # Finally, delete the folder itself
+    service.files().delete(fileId=folder_id).execute()
+    log.write_to_log(f'Folder deleted successfully! Folder ID: {folder_id}')
+
+def rename_folder(service, folder_id, new_name):
+    folder_metadata = {"name": new_name}
+    updated_folder = service.files().update(fileId=folder_id, body=folder_metadata).execute()
+
+    print(f'Folder renamed successfully! New Name: {updated_folder.get("name")}')
+    return updated_folder.get("id")
+
+
+'''------------FUNCIONES GETID ARCHIVOS Y CARPETAS------------'''
+def get_folder_id(service, folder_name):
+    query = f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    results = service.files().list(q=query, fields="files(id, name)").execute()
+    folders = results.get("files", [])
+    ids = []
+
+    if not folders:
+        log.write_to_log(f"No folder found with name: {folder_name}")
+        return None
+    else:
+        for f in folders:
+            ids.append(f["id"])
+        return ids
+
+def get_file_id(service, file_name):
+    query = f"name = '{file_name}' and trashed = false"
+    results = service.files().list(q=query, fields="files(id, name)").execute()
+    files = results.get("files", [])
+    ids = []
+
+    if not files:
+        log.write_to_log(f"No file found with name: {file_name}")
+        return None
+    else:
+        ids = []
+        for f in files:
+            ids.append(f["id"])
+        return ids
