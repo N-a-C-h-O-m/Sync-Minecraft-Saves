@@ -1,16 +1,21 @@
 import time
-from drive import download_file, update_file
+import drive
 
 PC_ID = 1
 LOCAL_LOG = "log"
-CLOUD_LOG_ID = ""
+SEVER_LOG = "server_log"
 
 def write_to_log(message):
     with open(LOCAL_LOG, "a") as f:
         f.write(f'PC({PC_ID})[{time.ctime(time.time())}]: {message}\n')
 
+def extract_message(logline):
+    return logline.split(']: ')[1]
+
 def download_log(service):
-    download_file(service, CLOUD_LOG_ID, "server_log")
+    log_id = drive.get_file_id(service, "log")[0];
+    drive.download_file(service, log_id, SEVER_LOG)
 
 def upload_log(service):
-    update_file(service, CLOUD_LOG_ID, LOCAL_LOG)
+    log_id = drive.get_file_id(service, "log")[0];
+    drive.update_file(service, log_id, LOCAL_LOG)
